@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() => runApp(MyApp());
+final Set<Marker> _markers = Set();
 
 class MyApp extends StatelessWidget {
   @override
@@ -23,14 +25,14 @@ class MapSample extends StatefulWidget {
 class MapSampleState extends State<MapSample> {
   Completer<GoogleMapController> _controller = Completer();
 
-  static final CameraPosition _kGooglePlex = CameraPosition(
-    target: LatLng(37.42796133580664, -122.085749655962),
+  static final CameraPosition _ubicacionInicial = CameraPosition(
+    target: LatLng(-0.180653, -78.467834),
     zoom: 14.4746,
   );
 
-  static  CameraPosition _kLake = CameraPosition(
+  static CameraPosition camPosicionUbicacion = CameraPosition(
       bearing: 192.8334901395799,
-      target: LatLng(37.43296265331129, -122.08832357078792),
+      target: LatLng(-0.180653, -78.467834),
       tilt: 59.440717697143555,
       zoom: 19.151926040649414);
 
@@ -38,8 +40,9 @@ class MapSampleState extends State<MapSample> {
   Widget build(BuildContext context) {
     return new Scaffold(
       body: GoogleMap(
-        mapType: MapType.hybrid,
-        initialCameraPosition: _kGooglePlex,
+        markers: _markers,
+        mapType: MapType.normal,
+        initialCameraPosition: _ubicacionInicial,
         onMapCreated: (GoogleMapController controller) {
           _controller.complete(controller);
         },
@@ -53,9 +56,57 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _goToTheLake() async {
+    _getUbicacionActual();
     final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(_kLake));
+    controller
+        .animateCamera(CameraUpdate.newCameraPosition(camPosicionUbicacion));
   }
 
+  Future<void> _getUbicacionActual() async {
+    //objeto geolocator que obtendra la ubicaciionactual
+    final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
 
+    geolocator
+        .getCurrentPosition(desiredAccuracy: LocationAccuracy.best)
+        .then((Position position) async {
+      setState(() {
+        //imprimir la posicion actual en log
+        print(position);
+      //Actualizar  camera position
+        camPosicionUbicacion = CameraPosition(
+            bearing: 192.8334901395799,
+            target: LatLng(position.latitude, position.longitude),
+            tilt: 59.440717697143555,
+            zoom: 19.151926040649414);
+      });
+      //agregar marcador con ubicacion actual
+      _markers.add(
+        Marker(
+          markerId: MarkerId('newyork'),
+          position: LatLng(position.latitude, position.longitude),
+        ),
+      );
+      //crear controller google map
+      final GoogleMapController controller = await _controller.future;
+      controller
+          .animateCamera(CameraUpdate.newCameraPosition(camPosicionUbicacion));
+    }).catchError((e) {
+      print(e);
+    });
+  }
+
+  Future<void> _goToNewYork() async {
+    double lat = 40.7128;
+    double long = -74.0060;
+    GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newLatLngZoom(LatLng(lat, long), 10));
+    setState(() {
+      _markers.add(
+        Marker(
+          markerId: MarkerId('Tu ubicacion'),
+          position: LatLng(lat, long),
+        ),
+      );
+    });
+  }
 }
